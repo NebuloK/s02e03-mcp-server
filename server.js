@@ -169,6 +169,15 @@ app.get('/sse', requireBearer, (req, res) => {
   req.on('close', () => { sessions.delete(sessionId); });
 });
 
+// ── MCP base at /mcp ─────────────────────────────────────────────────────────
+app.get('/mcp', requireBearer, (req, res) => {
+  res.json({ status: 'ok', endpoint: '/mcp/sse' });
+});
+
+app.post('/mcp', requireBearer, (req, res) => {
+  res.json({ status: 'ok', endpoint: '/mcp/messages' });
+});
+
 // ── MCP SSE alias at /mcp/sse ────────────────────────────────────────────────
 app.get('/mcp/sse', requireBearer, (req, res) => {
   const sessionId = randomUUID();
