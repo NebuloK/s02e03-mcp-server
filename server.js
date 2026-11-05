@@ -202,6 +202,10 @@ app.get('/mcp/sse', requireBearer, (req, res) => {
 });
 
 // ── MCP messages endpoint ────────────────────────────────────────────────────
+app.get('/messages', requireBearer, (req, res) => {
+  res.status(405).json({ error: 'Method Not Allowed. Use POST.' });
+});
+
 app.post('/messages', requireBearer, async (req, res) => {
   const sessionId = req.query.session_id;
   const session = sessions.get(sessionId);
@@ -225,6 +229,10 @@ app.post('/messages', requireBearer, async (req, res) => {
 });
 
 // ── MCP messages alias at /mcp/messages ─────────────────────────────────────
+app.get('/mcp/messages', requireBearer, (req, res) => {
+  res.status(405).json({ error: 'Method Not Allowed. Use POST.' });
+});
+
 app.post('/mcp/messages', requireBearer, async (req, res) => {
   const sessionId = req.query.session_id;
   const session = sessions.get(sessionId);
