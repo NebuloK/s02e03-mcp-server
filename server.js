@@ -288,26 +288,26 @@ app.post('/mcp/messages', async (req, res) => {
 async function handleMcpMessage(message) {
   if (!message || typeof message !== 'object') return null;
 
-  // Server discover (legacy MCP method)
+  // Server discover (current MCP method)
   if (message.method === 'server/discover') {
     return {
       jsonrpc: '2.0',
       id: message.id,
       result: {
-        protocolVersion: '2024-11-05',
+        supportedVersions: ['2026-07-28'],
         capabilities: { tools: {} },
-        serverInfo: { name: 's02e03-mcp-server', version: '1.0.0' }
+        instructions: 'MCP server with memo_write, memo_search, upload, and transcribe tools.'
       }
     };
   }
 
-  // Initialize
+  // Initialize (legacy MCP method)
   if (message.method === 'initialize') {
     return {
       jsonrpc: '2.0',
       id: message.id,
       result: {
-        protocolVersion: '2024-11-05',
+        protocolVersion: '2026-07-28',
         capabilities: { tools: {} },
         serverInfo: { name: 's02e03-mcp-server', version: '1.0.0' }
       }
