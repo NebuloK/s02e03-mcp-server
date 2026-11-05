@@ -433,11 +433,14 @@ async function handleMcpMessage(message) {
         default: throw new Error(`Unknown tool: ${name}`);
       }
 
+      // Keep total result under 1024 B: short text + structuredContent
+      const resultStr = JSON.stringify(result);
+      const textField = resultStr.length > 200 ? 'OK' : resultStr;
       return {
         jsonrpc: '2.0',
         id: message.id,
         result: {
-          content: [{ type: 'text', text: JSON.stringify(result) }],
+          content: [{ type: 'text', text: textField }],
           structuredContent: result,
           isError: false
         }
@@ -541,7 +544,7 @@ async function transcribeAudio(args) {
   // Build segments (start in seconds) — keep under 1024 B
   const segments = [];
   let totalBytes = 0;
-  const maxBytes = 900; // leave room for JSON overhead
+  const maxBytes = 600; // keep total result under 1024 B
   
   if (result.utterances) {
     for (const u of result.utterances) {
