@@ -146,8 +146,13 @@ app.post('/token', (req, res) => {
   });
 });
 
+// ── Auth guard for all /mcp/* paths ───────────────────────────────────────────
+app.use('/mcp', requireBearer);
+app.use('/sse', requireBearer);
+app.use('/messages', requireBearer);
+
 // ── MCP SSE endpoint ─────────────────────────────────────────────────────────
-app.get('/sse', requireBearer, (req, res) => {
+app.get('/sse', (req, res) => {
   const sessionId = randomUUID();
 
   res.setHeader('Content-Type', 'text/event-stream');
@@ -170,16 +175,16 @@ app.get('/sse', requireBearer, (req, res) => {
 });
 
 // ── MCP base at /mcp ─────────────────────────────────────────────────────────
-app.get('/mcp', requireBearer, (req, res) => {
+app.get('/mcp', (req, res) => {
   res.json({ status: 'ok', endpoint: '/mcp/sse' });
 });
 
-app.post('/mcp', requireBearer, (req, res) => {
+app.post('/mcp', (req, res) => {
   res.json({ status: 'ok', endpoint: '/mcp/messages' });
 });
 
 // ── MCP SSE alias at /mcp/sse ────────────────────────────────────────────────
-app.get('/mcp/sse', requireBearer, (req, res) => {
+app.get('/mcp/sse', (req, res) => {
   const sessionId = randomUUID();
 
   res.setHeader('Content-Type', 'text/event-stream');
@@ -202,11 +207,11 @@ app.get('/mcp/sse', requireBearer, (req, res) => {
 });
 
 // ── MCP messages endpoint ────────────────────────────────────────────────────
-app.get('/messages', requireBearer, (req, res) => {
+app.get('/messages', (req, res) => {
   res.status(405).json({ error: 'Method Not Allowed. Use POST.' });
 });
 
-app.post('/messages', requireBearer, async (req, res) => {
+app.post('/messages', async (req, res) => {
   const sessionId = req.query.session_id;
   const session = sessions.get(sessionId);
 
@@ -229,11 +234,11 @@ app.post('/messages', requireBearer, async (req, res) => {
 });
 
 // ── MCP messages alias at /mcp/messages ─────────────────────────────────────
-app.get('/mcp/messages', requireBearer, (req, res) => {
+app.get('/mcp/messages', (req, res) => {
   res.status(405).json({ error: 'Method Not Allowed. Use POST.' });
 });
 
-app.post('/mcp/messages', requireBearer, async (req, res) => {
+app.post('/mcp/messages', async (req, res) => {
   const sessionId = req.query.session_id;
   const session = sessions.get(sessionId);
 
