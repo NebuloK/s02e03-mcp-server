@@ -541,32 +541,56 @@ async function transcribeAudio(args) {
     throw new Error(`Transcription of ${url} failed: ${errMsg}`);
   }
 
-  // Build segments (start in seconds) — keep under 1024 B
+  // Build segments by grouping words into phrases/sentences
+  // This keeps the transcript meaningful — individual words don't help
   const segments = [];
   let totalBytes = 0;
-  const maxBytes = 600; // keep total result under 1024 B
-  
-  if (result.utterances) {
+  const maxBytes = 700; // keep total result under 1024 B
+
+  if (result.words && result.words.length > 0) {
+    let phraseStart = result.words[0].start || 0;
+    let phraseWords = [];
+
+    for (let i = 0; i < result.words.length; i++) {
+      const w = result.words[i];
+      const word = w.text || w.word || '';
+      const wordStart = w.start || 0;
+      const wordEnd = w.end || wordStart;
+      
+      phraseWords.push(word);
+
+      // End phrase at sentence punctuation or large gap (>0.8s) or end of words
+      const nextWord = result.words[i + 1];
+      const gap = nextWord ? (nextWord.start || 0) - wordEnd : 0;
+      const isLast = !nextWord;
+      const isSentenceEnd = /\.\s*$|[?!]\s*$/.test(word);
+      const isGap = gap > 0.8;
+
+      if (isLast || isSentenceEnd || isGap || phraseWords.length >= 10) {
+        const text = phraseWords.join(' ');
+        const start = Math.round(phraseStart / 1000 * 10) / 10;
+        const seg = { start, text: text.slice(0, 120) };
+        const segStr = JSON.stringify(seg);
+        if (totalBytes + segStr.length > maxBytes) break;
+        segments.push(seg);
+        totalBytes += segStr.length;
+        phraseWords = [];
+        if (nextWord) phraseStart = nextWord.start || 0;
+      }
+    }
+  } else if (result.utterances) {
     for (const u of result.utterances) {
-      const text = (u.text || '').slice(0, 80);
+      const text = (u.text || '').slice(0, 120);
       const seg = { start: Math.round((u.start || 0) / 1000 * 10) / 10, text };
       const segStr = JSON.stringify(seg);
       if (totalBytes + segStr.length > maxBytes) break;
       segments.push(seg);
       totalBytes += segStr.length;
     }
-  } else if (result.words) {
-    for (const w of result.words) {
-      const text = (w.text || w.word || '').slice(0, 80);
-      const seg = { start: Math.round((w.start || 0) / 1000 * 10) / 10, text };
-      const segStr = JSON.stringify(seg);
-      if (totalBytes + segStr.length > maxBytes) break;
-      segments.push(seg);
-      totalBytes += segStr.length;
-    }
   }
+  
   if (segments.length === 0 && result.text) {
-    segments.push({ start: 0, text: result.text.slice(0, 80) });
+    segments.push({ start: 0, text: result.text.slice(0, 120) });
   }
 
   return { segments };
