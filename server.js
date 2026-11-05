@@ -150,7 +150,7 @@ app.post('/token', (req, res) => {
 const PUBLIC_PATHS = ['/.well-known/', '/docs', '/authorize', '/token', '/health', '/files/'];
 
 app.use((req, res, next) => {
-  const isPublic = PUBLIC_PATHS.some(p => req.path.startsWith(p));
+  const isPublic = PUBLIC_PATHS.find(p => req.path.startsWith(p)) !== undefined;
   if (isPublic) return next();
   return requireBearer(req, res, next);
 });
