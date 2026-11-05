@@ -541,47 +541,37 @@ async function transcribeAudio(args) {
     throw new Error(`Transcription of ${url} failed: ${errMsg}`);
   }
 
-  // Build segments by grouping words into phrases/sentences
-  // This keeps the transcript meaningful — individual words don't help
+  // Build segments using word-level data from AssemblyAI
+  // Group consecutive words into sentences up to a max total size
   const segments = [];
   let totalBytes = 0;
-  const maxBytes = 700; // keep total result under 1024 B
+  const maxBytes = 750;
 
   if (result.words && result.words.length > 0) {
-    let phraseStart = result.words[0].start || 0;
-    let phraseWords = [];
-
-    for (let i = 0; i < result.words.length; i++) {
-      const w = result.words[i];
-      const word = w.text || w.word || '';
-      const wordStart = w.start || 0;
-      const wordEnd = w.end || wordStart;
-      
-      phraseWords.push(word);
-
-      // End phrase at sentence punctuation or large gap (>0.8s) or end of words
-      const nextWord = result.words[i + 1];
-      const gap = nextWord ? (nextWord.start || 0) - wordEnd : 0;
-      const isLast = !nextWord;
-      const isSentenceEnd = /\.\s*$|[?!]\s*$/.test(word);
-      const isGap = gap > 800; // gap in ms, 0.8 seconds
-
-      if (isLast || isSentenceEnd || isGap || phraseWords.length >= 10) {
-        const text = phraseWords.join(' ');
-        const start = Math.round(phraseStart / 1000 * 10) / 10;
-        const seg = { start, text: text.slice(0, 120) };
-        const segStr = JSON.stringify(seg);
-        if (totalBytes + segStr.length > maxBytes) break;
-        segments.push(seg);
-        totalBytes += segStr.length;
-        phraseWords = [];
-        if (nextWord) phraseStart = nextWord.start || 0;
+    // Group words: each word becomes a segment with its start time
+    // To keep total under limit, use fewer words per segment
+    const groupSize = Math.max(1, Math.floor(result.words.length / 5));
+    let i = 0;
+    while (i < result.words.length && totalBytes < maxBytes) {
+      let phraseWords = [];
+      const startMs = result.words[i].start || 0;
+      for (let j = 0; j < groupSize && i < result.words.length; j++, i++) {
+        const w = result.words[i];
+        phraseWords.push(w.text || w.word || '');
       }
+      const text = phraseWords.join(' ');
+      const start = Math.round(startMs / 1000 * 10) / 10;
+      const seg = { start, text: text.slice(0, 150) };
+      const segStr = JSON.stringify(seg);
+      if (totalBytes + segStr.length > maxBytes) break;
+      segments.push(seg);
+      totalBytes += segStr.length;
     }
   } else if (result.utterances) {
     for (const u of result.utterances) {
-      const text = (u.text || '').slice(0, 120);
-      const seg = { start: Math.round((u.start || 0) / 1000 * 10) / 10, text };
+      const text = (u.text || '').slice(0, 150);
+      const start = Math.round((u.start || 0) / 1000 * 10) / 10;
+      const seg = { start, text };
       const segStr = JSON.stringify(seg);
       if (totalBytes + segStr.length > maxBytes) break;
       segments.push(seg);
@@ -590,7 +580,7 @@ async function transcribeAudio(args) {
   }
   
   if (segments.length === 0 && result.text) {
-    segments.push({ start: 0, text: result.text.slice(0, 120) });
+    segments.push({ start: 0, text: result.text.slice(0, 150) });
   }
 
   return { segments };
