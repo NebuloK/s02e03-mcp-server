@@ -330,6 +330,13 @@ async function handleMcpMessage(message) {
                 text: { type: 'string', description: 'The note text to save' }
               },
               required: ['text']
+            },
+            outputSchema: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', description: 'The id of the saved note' }
+              },
+              required: ['id']
             }
           },
           {
@@ -341,6 +348,23 @@ async function handleMcpMessage(message) {
                 query: { type: 'string', description: 'Search query' }
               },
               required: ['query']
+            },
+            outputSchema: {
+              type: 'object',
+              properties: {
+                notes: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string' },
+                      text: { type: 'string' },
+                      created_at: { type: 'string' }
+                    }
+                  }
+                }
+              },
+              required: ['notes']
             }
           },
           {
@@ -353,6 +377,13 @@ async function handleMcpMessage(message) {
                 content: { type: 'string', description: 'File content as base64 string' }
               },
               required: ['filename', 'content']
+            },
+            outputSchema: {
+              type: 'object',
+              properties: {
+                url: { type: 'string', description: 'Public URL of the uploaded file' }
+              },
+              required: ['url']
             }
           },
           {
@@ -364,6 +395,23 @@ async function handleMcpMessage(message) {
                 url: { type: 'string', description: 'URL of the audio file to transcribe' }
               },
               required: ['url']
+            },
+            outputSchema: {
+              type: 'object',
+              properties: {
+                segments: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      start: { type: 'number', description: 'Start time in seconds' },
+                      text: { type: 'string', description: 'Transcribed text' }
+                    },
+                    required: ['start', 'text']
+                  }
+                }
+              },
+              required: ['segments']
             }
           }
         ]
@@ -390,6 +438,7 @@ async function handleMcpMessage(message) {
         id: message.id,
         result: {
           content: [{ type: 'text', text: JSON.stringify(result) }],
+          structuredContent: result,
           isError: false
         }
       };
@@ -441,14 +490,17 @@ async function uploadFile(args) {
 }
 
 async function transcribeAudio(args) {
-  if (!args || !args.url) throw new Error('Missing required field: url');
+  const url = args?.url || '';
+  if (!url) throw new Error(`Missing required field: url for transcribe`);
   if (!ASSEMBLYAI_KEY) {
-    throw new Error('Transcription service not configured. Set ASSEMBLYAI_API_KEY.');
+    throw new Error(`Transcription service not configured (ASSEMBLYAI_API_KEY missing) for url: ${url}`);
   }
 
   // Download audio
-  const audioRes = await fetch(args.url);
-  if (!audioRes.ok) throw new Error(`Failed to download audio: ${audioRes.status}`);
+  const audioRes = await fetch(url);
+  if (!audioRes.ok) {
+    throw new Error(`Failed to download audio from ${url}: HTTP ${audioRes.status}`);
+  }
   const audioBuffer = await audioRes.arrayBuffer();
 
   // Upload to AssemblyAI
@@ -457,7 +509,7 @@ async function transcribeAudio(args) {
     headers: { 'Authorization': ASSEMBLYAI_KEY },
     body: Buffer.from(audioBuffer)
   });
-  if (!uploadRes.ok) throw new Error(`AssemblyAI upload failed: ${uploadRes.status}`);
+  if (!uploadRes.ok) throw new Error(`AssemblyAI upload failed for url ${url}: HTTP ${uploadRes.status}`);
   const uploadData = await uploadRes.json();
 
   // Request transcription
@@ -466,7 +518,7 @@ async function transcribeAudio(args) {
     headers: { 'Authorization': ASSEMBLYAI_KEY, 'Content-Type': 'application/json' },
     body: JSON.stringify({ audio_url: uploadData.upload_url })
   });
-  if (!transcriptRes.ok) throw new Error(`AssemblyAI transcript request failed: ${transcriptRes.status}`);
+  if (!transcriptRes.ok) throw new Error(`AssemblyAI transcript request failed for url ${url}: HTTP ${transcriptRes.status}`);
   const transcriptData = await transcriptRes.json();
 
   // Poll for completion
@@ -482,22 +534,36 @@ async function transcribeAudio(args) {
   }
 
   if (result.status !== 'completed') {
-    throw new Error(`Transcription failed or timed out: ${result.status}`);
+    const errMsg = result.error || result.status || 'unknown';
+    throw new Error(`Transcription of ${url} failed: ${errMsg}`);
   }
 
-  // Build segments (start in seconds)
+  // Build segments (start in seconds) — keep under 1024 B
   const segments = [];
+  let totalBytes = 0;
+  const maxBytes = 900; // leave room for JSON overhead
+  
   if (result.utterances) {
     for (const u of result.utterances) {
-      segments.push({ start: (u.start || 0) / 1000, text: u.text || '' });
+      const text = (u.text || '').slice(0, 80);
+      const seg = { start: Math.round((u.start || 0) / 1000 * 10) / 10, text };
+      const segStr = JSON.stringify(seg);
+      if (totalBytes + segStr.length > maxBytes) break;
+      segments.push(seg);
+      totalBytes += segStr.length;
     }
   } else if (result.words) {
     for (const w of result.words) {
-      segments.push({ start: (w.start || 0) / 1000, text: w.text || w.word || '' });
+      const text = (w.text || w.word || '').slice(0, 80);
+      const seg = { start: Math.round((w.start || 0) / 1000 * 10) / 10, text };
+      const segStr = JSON.stringify(seg);
+      if (totalBytes + segStr.length > maxBytes) break;
+      segments.push(seg);
+      totalBytes += segStr.length;
     }
   }
   if (segments.length === 0 && result.text) {
-    segments.push({ start: 0, text: result.text });
+    segments.push({ start: 0, text: result.text.slice(0, 80) });
   }
 
   return { segments };
