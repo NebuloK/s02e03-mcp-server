@@ -564,7 +564,7 @@ async function transcribeAudio(args) {
       const gap = nextWord ? (nextWord.start || 0) - wordEnd : 0;
       const isLast = !nextWord;
       const isSentenceEnd = /\.\s*$|[?!]\s*$/.test(word);
-      const isGap = gap > 0.8;
+      const isGap = gap > 800; // gap in ms, 0.8 seconds
 
       if (isLast || isSentenceEnd || isGap || phraseWords.length >= 10) {
         const text = phraseWords.join(' ');
