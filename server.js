@@ -157,6 +157,24 @@ app.use((req, res, next) => {
   return requireBearer(req, res, next);
 });
 
+// ── Root handlers (after auth check) ─────────────────────────────────────────
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', server: 's02e03-mcp-server' });
+});
+
+app.post('/', async (req, res) => {
+  // Accept JSON-RPC messages directly at the root
+  const message = req.body;
+  if (message && typeof message === 'object' && message.method) {
+    const response = await handleMcpMessage(message);
+    if (response) {
+      res.json(response);
+      return;
+    }
+  }
+  res.status(400).json({ error: 'Invalid request' });
+});
+
 // ── MCP SSE endpoint ─────────────────────────────────────────────────────────
 app.get('/sse', (req, res) => {
   const sessionId = randomUUID();
@@ -269,6 +287,19 @@ app.post('/mcp/messages', async (req, res) => {
 // ── MCP message handler ──────────────────────────────────────────────────────
 async function handleMcpMessage(message) {
   if (!message || typeof message !== 'object') return null;
+
+  // Server discover (legacy MCP method)
+  if (message.method === 'server/discover') {
+    return {
+      jsonrpc: '2.0',
+      id: message.id,
+      result: {
+        protocolVersion: '2024-11-05',
+        capabilities: { tools: {} },
+        serverInfo: { name: 's02e03-mcp-server', version: '1.0.0' }
+      }
+    };
+  }
 
   // Initialize
   if (message.method === 'initialize') {
