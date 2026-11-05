@@ -151,6 +151,11 @@ app.use('/mcp', requireBearer);
 app.use('/sse', requireBearer);
 app.use('/messages', requireBearer);
 
+// ── Root handler ─────────────────────────────────────────────────────────────
+app.get('/', requireBearer, (req, res) => {
+  res.json({ status: 'ok', endpoint: '/mcp/sse' });
+});
+
 // ── MCP SSE endpoint ─────────────────────────────────────────────────────────
 app.get('/sse', (req, res) => {
   const sessionId = randomUUID();
