@@ -169,8 +169,54 @@ app.get('/sse', requireBearer, (req, res) => {
   req.on('close', () => { sessions.delete(sessionId); });
 });
 
+// ── MCP SSE alias at /mcp/sse ────────────────────────────────────────────────
+app.get('/mcp/sse', requireBearer, (req, res) => {
+  const sessionId = randomUUID();
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  const session = { id: sessionId, res, messageQueue: [] };
+  sessions.set(sessionId, session);
+
+  // Send endpoint event
+  res.write(`event: endpoint\ndata: /mcp/messages?session_id=${sessionId}\n\n`);
+
+  // Send any queued messages
+  for (const msg of session.messageQueue) {
+    res.write(`event: message\ndata: ${JSON.stringify(msg)}\n\n`);
+  }
+  session.messageQueue = [];
+
+  req.on('close', () => { sessions.delete(sessionId); });
+});
+
 // ── MCP messages endpoint ────────────────────────────────────────────────────
 app.post('/messages', requireBearer, async (req, res) => {
+  const sessionId = req.query.session_id;
+  const session = sessions.get(sessionId);
+
+  if (!session) {
+    return res.status(404).json({ error: 'Session not found' });
+  }
+
+  const message = req.body;
+  const response = await handleMcpMessage(message);
+
+  if (response) {
+    if (session.res && !session.res.writableEnded) {
+      session.res.write(`event: message\ndata: ${JSON.stringify(response)}\n\n`);
+    } else {
+      session.messageQueue.push(response);
+    }
+  }
+
+  res.status(202).send();
+});
+
+// ── MCP messages alias at /mcp/messages ─────────────────────────────────────
+app.post('/mcp/messages', requireBearer, async (req, res) => {
   const sessionId = req.query.session_id;
   const session = sessions.get(sessionId);
 
