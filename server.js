@@ -146,14 +146,13 @@ app.post('/token', (req, res) => {
   });
 });
 
-// ── Auth guard for all /mcp/* paths ───────────────────────────────────────────
-app.use('/mcp', requireBearer);
-app.use('/sse', requireBearer);
-app.use('/messages', requireBearer);
+// ── Global auth: require token on ALL paths except public ones ───────────────
+const PUBLIC_PATHS = ['/.well-known/', '/docs', '/authorize', '/token', '/health', '/files/'];
 
-// ── Root handler ─────────────────────────────────────────────────────────────
-app.get('/', requireBearer, (req, res) => {
-  res.json({ status: 'ok', endpoint: '/mcp/sse' });
+app.use((req, res, next) => {
+  const isPublic = PUBLIC_PATHS.some(p => req.path.startsWith(p));
+  if (isPublic) return next();
+  return requireBearer(req, res, next);
 });
 
 // ── MCP SSE endpoint ─────────────────────────────────────────────────────────
