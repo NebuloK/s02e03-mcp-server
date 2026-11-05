@@ -73,6 +73,7 @@ app.get('/.well-known/oauth-authorization-server', (req, res) => {
     response_types_supported: ['code'],
     grant_types_supported: ['authorization_code'],
     code_challenge_methods_supported: ['S256'],
+    client_id_metadata_document_supported: true,
     scopes_supported: ['mcp']
   });
 });
