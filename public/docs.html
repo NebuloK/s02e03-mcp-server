@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>S02E03 MCP Server — Documentation</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #333; }
+    h1 { border-bottom: 2px solid #333; padding-bottom: 10px; }
+    h2 { margin-top: 32px; color: #222; }
+    code { background: #f4f4f4; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+    pre { background: #f4f4f4; padding: 16px; border-radius: 8px; overflow-x: auto; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+    th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+    th { background: #f8f8f8; }
+  </style>
+</head>
+<body>
+  <h1>S02E03 MCP Server</h1>
+  <p>A remote <a href="https://modelcontextprotocol.io">Model Context Protocol</a> server with memo, upload, and transcribe tools.</p>
+
+  <h2>Tools</h2>
+  <table>
+    <tr><th>Tool</th><th>Description</th><th>Input</th><th>Output</th></tr>
+    <tr>
+      <td><code>memo_write</code></td>
+      <td>Saves a note.</td>
+      <td><code>{ text: string }</code></td>
+      <td><code>{ id: string }</code></td>
+    </tr>
+    <tr>
+      <td><code>memo_search</code></td>
+      <td>Finds notes matching a query.</td>
+      <td><code>{ query: string }</code></td>
+      <td><code>{ notes: [{ id, text, created_at }] }</code></td>
+    </tr>
+    <tr>
+      <td><code>upload</code></td>
+      <td>Uploads a file and returns a public URL.</td>
+      <td><code>{ filename: string, content: string (base64) }</code></td>
+      <td><code>{ url: string }</code></td>
+    </tr>
+    <tr>
+      <td><code>transcribe</code></td>
+      <td>Transcribes audio from a URL into timestamped segments.</td>
+      <td><code>{ url: string }</code></td>
+      <td><code>{ segments: [{ start: number (seconds), text: string }] }</code></td>
+    </tr>
+  </table>
+
+  <h2>Sign-in</h2>
+  <p>This server uses <strong>OAuth 2.0</strong> for access control. Only authorized clients can call the tools.</p>
+  <ol>
+    <li>The client discovers the server via <code>/.well-known/oauth-protected-resource</code>.</li>
+    <li>The user opens the authorization URL (<code>/authorize</code>) and clicks <strong>Allow Access</strong>.</li>
+    <li>The client exchanges the authorization code for an access token at <code>/token</code>.</li>
+    <li>The client includes the token in the <code>Authorization: Bearer &lt;token&gt;</code> header on every MCP request.</li>
+  </ol>
+
+  <h2>Data retention</h2>
+  <p>Notes and uploaded files are stored <strong>in memory</strong> (and on disk for uploads). Data persists only while the server process is running. When the server restarts, all memos are reset. Uploaded files remain on disk until the instance is redeployed.</p>
+
+  <h2>Endpoints</h2>
+  <ul>
+    <li><code>GET /.well-known/oauth-protected-resource</code> — Protected resource metadata</li>
+    <li><code>GET /.well-known/oauth-authorization-server</code> — Authorization server metadata</li>
+    <li><code>GET /authorize</code> — OAuth authorization page</li>
+    <li><code>POST /token</code> — OAuth token endpoint</li>
+    <li><code>GET /sse</code> — MCP SSE endpoint</li>
+    <li><code>POST /messages?session_id=&lt;id&gt;</code> — MCP message endpoint</li>
+    <li><code>GET /docs</code> — This page</li>
+    <li><code>GET /health</code> — Health check</li>
+    <li><code>GET /files/&lt;filename&gt;</code> — Serve uploaded files</li>
+  </ul>
+</body>
+</html>

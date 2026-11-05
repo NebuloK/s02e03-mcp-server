@@ -1,0 +1,20 @@
+{
+  "name": "s02e03-mcp-server",
+  "version": "1.0.0",
+  "description": "Remote MCP server for S02E03 — memo, upload, and transcribe tools",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "multer": "^1.4.5-lts.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["mcp", "s02e03"],
+  "license": "MIT"
+}
