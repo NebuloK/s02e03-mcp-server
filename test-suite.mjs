@@ -272,6 +272,26 @@ async function runTests() {
   const fakeRes = await fetch(`${BASE}/sse`, { headers: { Authorization: `Bearer ${fakeToken}` } });
   assert(fakeRes.status === 200, `Arbitrary token accepted (got ${fakeRes.status})`);
 
+  // Test 19: POST /mcp handles JSON-RPC directly
+  console.log('\nTest 19: POST /mcp handles JSON-RPC');
+  const mcpPost = await fetch(`${BASE}/mcp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok1}` },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 200, method: 'tools/list', params: {} })
+  });
+  const mcpPostJson = await mcpPost.json();
+  assert(mcpPostJson.result && mcpPostJson.result.tools, 'POST /mcp returns tools list via JSON-RPC');
+
+  // Test 20: POST / handles JSON-RPC directly
+  console.log('\nTest 20: POST / handles JSON-RPC');
+  const rootPost = await fetch(`${BASE}/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok1}` },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 201, method: 'tools/list', params: {} })
+  });
+  const rootPostJson = await rootPost.json();
+  assert(rootPostJson.result && rootPostJson.result.tools, 'POST / returns tools list via JSON-RPC');
+
   console.log('\n=== SUMMARY ===');
   if (failures === 0) console.log('All tests passed ✅');
   else console.log(`${failures} test(s) failed ❌`);

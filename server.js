@@ -254,7 +254,16 @@ app.get('/mcp', (req, res) => {
   res.json({ status: 'ok', endpoint: '/mcp/sse' });
 });
 
-app.post('/mcp', (req, res) => {
+app.post('/mcp', async (req, res) => {
+  // Accept JSON-RPC messages directly at /mcp
+  const message = req.body;
+  if (message && typeof message === 'object' && message.method) {
+    const response = await handleMcpMessage(message, req.clientId || '_public');
+    if (response) {
+      res.json(response);
+      return;
+    }
+  }
   res.json({ status: 'ok', endpoint: '/mcp/messages' });
 });
 
