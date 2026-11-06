@@ -31,9 +31,9 @@ try {
   console.log(`Loaded ${memos.size} memos from disk`);
 } catch { /* no saved memos yet */ }
 
-function saveMemos() {
+async function saveMemos() {
   try {
-    writeFile(memosFile, JSON.stringify([...memos.values()]));
+    await writeFile(memosFile, JSON.stringify([...memos.values()]));
   } catch { /* best effort */ }
 }
 
@@ -301,6 +301,10 @@ app.post('/mcp/messages', async (req, res) => {
   }
 
   const message = req.body;
+  if (message && message.method) {
+    recentWrites.unshift({ from: '/mcp/messages', method: message.method, params: message.params, clientId: req.clientId });
+    if (recentWrites.length > 50) recentWrites.pop();
+  }
   const response = await handleMcpMessage(message, req.clientId);
 
   if (response) {
@@ -486,7 +490,7 @@ async function handleMcpMessage(message, clientId) {
     try {
       let result;
       switch (name) {
-        case 'memo_write': result = memoWrite(args, clientId); break;
+        case 'memo_write': result = await memoWrite(args, clientId); break;
         case 'memo_search': result = memoSearch(args, clientId); break;
         case 'memo_list': result = memoList(clientId); break;
         case 'upload': result = await uploadFile(args); break;
@@ -522,13 +526,13 @@ async function handleMcpMessage(message, clientId) {
 }
 
 // ── Tool implementations ─────────────────────────────────────────────────────
-function memoWrite(args, clientId) {
+async function memoWrite(args, clientId) {
   if (!args) args = {};
   const id = randomUUID();
   const text = args.text || '';
   const note = { id, text, created_at: new Date().toISOString(), clientId: clientId || '_unknown' };
   memos.set(id, note);
-  saveMemos();
+  await saveMemos();
   recentWrites.unshift({ id, text: text.slice(0, 50), time: new Date().toISOString(), clientId: clientId || '_unknown' });
   if (recentWrites.length > 10) recentWrites.pop();
   return { id };
