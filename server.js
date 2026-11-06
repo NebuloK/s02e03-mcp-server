@@ -197,6 +197,8 @@ const PUBLIC_PATHS = ['/.well-known/', '/docs', '/authorize', '/token', '/health
 app.use((req, res, next) => {
   const isPublic = PUBLIC_PATHS.find(p => req.path.startsWith(p)) !== undefined;
   if (isPublic) return next();
+  // Allow GET /mcp and GET / for discovery without auth
+  if ((req.path === '/mcp' || req.path === '/') && req.method === 'GET') return next();
   return requireBearer(req, res, next);
 });
 
