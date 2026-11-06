@@ -228,12 +228,12 @@ async function runTests() {
   const status12 = await postViaSse(tok1, '/mcp/sse', 'memo_list', {}, 100);
   assert(status12 === 202, `POST /mcp/messages returns 202 (got ${status12})`);
 
-  // Test 13: Short/empty token rejected, reasonable-length accepted
-  console.log('\nTest 13: Short token rejected, reasonable-length accepted');
-  const shortAuth = await fetch(`${BASE}/sse`, { headers: { Authorization: 'Bearer x' } });
-  assert(shortAuth.status === 401, `Short token returns 401 (got ${shortAuth.status})`);
-  const badAuth = await fetch(`${BASE}/sse`, { headers: { Authorization: 'Bearer bad-token' } });
-  assert(badAuth.status === 200, `Reasonable token accepted (got ${badAuth.status})`);
+  // Test 13: SSE GET is public (discovery), POST requires auth
+  console.log('\nTest 13: SSE GET is public for MCP discovery, POST requires auth');
+  const noAuthSse = await fetch(`${BASE}/sse`);
+  assert(noAuthSse.status === 200, `GET /sse public (got ${noAuthSse.status})`);
+  const postNoAuth = await fetch(`${BASE}/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+  assert(postNoAuth.status === 401, `POST / without auth returns 401 (got ${postNoAuth.status})`);
 
   // Test 14: Upload tool
   console.log('\nTest 14: upload tool works');
