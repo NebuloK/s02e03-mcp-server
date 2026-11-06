@@ -501,11 +501,14 @@ async function handleMcpMessage(message) {
 
 // ── Tool implementations ─────────────────────────────────────────────────────
 function memoWrite(args) {
-  if (!args || !args.text) throw new Error('Missing required field: text');
+  if (!args) args = {};
   const id = randomUUID();
-  const note = { id, text: args.text, created_at: new Date().toISOString() };
+  const text = args.text || '';
+  const note = { id, text, created_at: new Date().toISOString() };
   memos.set(id, note);
   saveMemos();
+  recentWrites.unshift({ id, text: text.slice(0, 50), time: new Date().toISOString() });
+  if (recentWrites.length > 10) recentWrites.pop();
   return { id };
 }
 
@@ -642,9 +645,10 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', memos: memos.size });
 });
 
+const recentWrites = [];
 app.get('/debug', (req, res) => {
   const notes = [...memos.values()];
-  res.json({ notes });
+  res.json({ notes, recentWrites });
 });
 
 // ── HTML escape helper ──────────────────────────────────────────────────────
