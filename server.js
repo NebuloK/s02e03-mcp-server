@@ -455,8 +455,9 @@ async function handleMcpMessage(message, clientId) {
   if (message.method === 'initialize') {
     const params = message.params || {};
     const clientVersion = params.protocolVersion || '2024-11-05';
-    // Accept any protocol version the client sends
-    const serverVersion = clientVersion;
+    const supportedVersions = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
+    // Official SDK behavior: if requested is supported, use it; else use latest
+    const serverVersion = supportedVersions.includes(clientVersion) ? clientVersion : supportedVersions[0];
     return {
       jsonrpc: '2.0',
       id: message.id,
