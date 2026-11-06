@@ -1,1 +1,1 @@
-[{"id":"test-123","text":"test note","created_at":"2026-01-01T00:00:00Z"}]
+[{"id":"5e69b99a-76c4-41c9-8ef7-75ff8fcd02a5","text":"Alice first note about the project","created_at":"2026-11-06T14:28:12.032Z","clientId":"_public"},{"id":"10c0b946-d1c9-41a7-a54b-bcf7eaa11c57","text":"Bob remembers the deadline is Friday","created_at":"2026-11-06T14:28:12.231Z","clientId":"_public"},{"id":"697703f1-ab83-4e2e-825b-6e2ae1e9ccd6","text":"Charlie todo: review the docs","created_at":"2026-11-06T14:28:12.413Z","clientId":"_public"}]
