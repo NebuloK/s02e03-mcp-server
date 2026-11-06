@@ -194,6 +194,12 @@ app.post('/token', (req, res) => {
 // ── Global auth: require token on ALL paths except public ones ───────────────
 const PUBLIC_PATHS = ['/.well-known/', '/docs', '/authorize', '/token', '/health', '/files/'];
 
+// Log ALL requests BEFORE auth so we can see failed auth attempts
+app.use((req, res, next) => {
+  logRequest(req);
+  next();
+});
+
 app.use((req, res, next) => {
   const isPublic = PUBLIC_PATHS.find(p => req.path.startsWith(p)) !== undefined;
   if (isPublic) return next();
@@ -202,12 +208,6 @@ app.use((req, res, next) => {
   if (discoveryPaths.includes(req.path) && req.method === 'GET') return next();
   if (req.path === '/' && req.method === 'GET') return next();
   return requireBearer(req, res, next);
-});
-
-// Log ALL requests so we can see what the course sends
-app.use((req, res, next) => {
-  logRequest(req);
-  next();
 });
 
 // ── Root handlers (after auth check) ─────────────────────────────────────────
