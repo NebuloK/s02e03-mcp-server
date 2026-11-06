@@ -162,7 +162,7 @@ app.post('/token', (req, res) => {
 });
 
 // ── Global auth: require token on ALL paths except public ones ───────────────
-const PUBLIC_PATHS = ['/.well-known/', '/docs', '/authorize', '/token', '/health', '/files/', '/debug'];
+const PUBLIC_PATHS = ['/.well-known/', '/docs', '/authorize', '/token', '/health', '/files/', '/debug', '/'];
 
 app.use((req, res, next) => {
   const isPublic = PUBLIC_PATHS.find(p => req.path.startsWith(p)) !== undefined;
