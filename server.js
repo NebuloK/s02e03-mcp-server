@@ -202,11 +202,9 @@ app.use((req, res, next) => {
   return requireBearer(req, res, next);
 });
 
-// Log after auth so clientId is available
+// Log ALL requests so we can see what the course sends
 app.use((req, res, next) => {
-  if (!PUBLIC_PATHS.find(p => req.path.startsWith(p))) {
-    logRequest(req);
-  }
+  logRequest(req);
   next();
 });
 
