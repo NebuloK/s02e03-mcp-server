@@ -17,24 +17,97 @@ const PORT = process.env.PORT || 3000;
 const AUTH_TOKEN = process.env.AUTH_TOKEN;
 const ASSEMBLYAI_KEY = process.env.ASSEMBLYAI_API_KEY;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const GITHUB_OWNER = 'NebuloK';
+const GITHUB_REPO = 's02e03-mcp-server';
+const GITHUB_MEMO_PATH = 'memos.json';
 
 // ── Storage ──────────────────────────────────────────────────────────────────
 const memosFile = path.join(process.cwd(), 'memos.json');
 const memos = new Map();
 
-// Load memos from disk (survives restarts)
+// GitHub-backed persistent storage helpers
+async function githubFetch(url, opts = {}) {
+  if (!GITHUB_TOKEN) return null;
+  const res = await fetch(url, {
+    ...opts,
+    headers: {
+      ...(opts.headers || {}),
+      Authorization: `Bearer ${GITHUB_TOKEN}`,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28'
+    }
+  });
+  if (!res.ok) return null;
+  return res;
+}
+
+async function loadMemosFromGithub() {
+  const res = await githubFetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_MEMO_PATH}`);
+  if (!res) return null;
+  const data = await res.json();
+  if (data.content) {
+    try {
+      const json = Buffer.from(data.content, 'base64').toString('utf-8');
+      return JSON.parse(json);
+    } catch { return null; }
+  }
+  return null;
+}
+
+async function saveMemosToGithub() {
+  const content = Buffer.from(JSON.stringify([...memos.values()], null, 2)).toString('base64');
+  // Try to get current file sha
+  const getRes = await githubFetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_MEMO_PATH}`);
+  let sha = null;
+  if (getRes) {
+    const data = await getRes.json();
+    sha = data.sha;
+  }
+  const body = JSON.stringify({
+    message: 'Update memos',
+    content,
+    sha
+  });
+  const putRes = await githubFetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_MEMO_PATH}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body
+  });
+  return putRes && putRes.ok;
+}
+
+// Load memos from disk or GitHub
+let loaded = false;
 try {
   const saved = JSON.parse(await readFile(memosFile, 'utf-8'));
   if (Array.isArray(saved)) {
     for (const n of saved) memos.set(n.id, n);
+    loaded = true;
   }
-  console.log(`Loaded ${memos.size} memos from disk`);
 } catch { /* no saved memos yet */ }
+
+if (!loaded && GITHUB_TOKEN) {
+  try {
+    const githubMemos = await loadMemosFromGithub();
+    if (Array.isArray(githubMemos)) {
+      for (const n of githubMemos) memos.set(n.id, n);
+      console.log(`Loaded ${memos.size} memos from GitHub`);
+    }
+  } catch (e) { console.log('GitHub load failed:', e.message); }
+}
+
+console.log(`Loaded ${memos.size} memos total`);
 
 async function saveMemos() {
   try {
     await writeFile(memosFile, JSON.stringify([...memos.values()]));
   } catch { /* best effort */ }
+  if (GITHUB_TOKEN) {
+    try {
+      await saveMemosToGithub();
+    } catch { /* best effort */ }
+  }
 }
 
 const authCodes = new Map();
