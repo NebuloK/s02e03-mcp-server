@@ -381,6 +381,31 @@ async function handleMcpMessage(message) {
             }
           },
           {
+            name: 'memo_list',
+            description: 'Lists all notes stored on the server.',
+            inputSchema: {
+              type: 'object',
+              properties: {}
+            },
+            outputSchema: {
+              type: 'object',
+              properties: {
+                notes: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string' },
+                      text: { type: 'string' },
+                      created_at: { type: 'string' }
+                    }
+                  }
+                }
+              },
+              required: ['notes']
+            }
+          },
+          {
             name: 'upload',
             description: 'Uploads a file (base64 content) and returns a public URL.',
             inputSchema: {
@@ -441,6 +466,7 @@ async function handleMcpMessage(message) {
       switch (name) {
         case 'memo_write': result = memoWrite(args); break;
         case 'memo_search': result = memoSearch(args); break;
+        case 'memo_list': result = memoList(args); break;
         case 'upload': result = await uploadFile(args); break;
         case 'transcribe': result = await transcribeAudio(args); break;
         default: throw new Error(`Unknown tool: ${name}`);
@@ -489,6 +515,14 @@ function memoSearch(args) {
   const notes = [];
   for (const note of memos.values()) {
     if (note.text.toLowerCase().includes(query)) notes.push(note);
+  }
+  return { notes };
+}
+
+function memoList() {
+  const notes = [];
+  for (const note of memos.values()) {
+    notes.push(note);
   }
   return { notes };
 }
