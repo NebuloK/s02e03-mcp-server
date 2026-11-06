@@ -438,7 +438,7 @@ async function handleMcpMessage(message, clientId) {
       jsonrpc: '2.0',
       id: message.id,
       result: {
-        supportedVersions: ['2026-07-28'],
+        supportedVersions: ['2024-11-05', '2025-03-26'],
         capabilities: { tools: {} },
         instructions: 'MCP server with memo_write, memo_search, upload, and transcribe tools.'
       }
@@ -447,11 +447,15 @@ async function handleMcpMessage(message, clientId) {
 
   // Initialize (legacy MCP method)
   if (message.method === 'initialize') {
+    const params = message.params || {};
+    const clientVersion = params.protocolVersion || '2024-11-05';
+    // Accept client version if it's one we support
+    const serverVersion = ['2024-11-05', '2025-03-26'].includes(clientVersion) ? clientVersion : '2024-11-05';
     return {
       jsonrpc: '2.0',
       id: message.id,
       result: {
-        protocolVersion: '2026-07-28',
+        protocolVersion: serverVersion,
         capabilities: { tools: {} },
         serverInfo: { name: 's02e03-mcp-server', version: '1.0.0' }
       }
