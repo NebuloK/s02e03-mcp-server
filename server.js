@@ -257,6 +257,11 @@ app.post('/messages', async (req, res) => {
   }
 
   const message = req.body;
+  // Log the call
+  if (message && message.method) {
+    recentWrites.unshift({ from: '/messages', method: message.method, params: message.params });
+    if (recentWrites.length > 50) recentWrites.pop();
+  }
   const response = await handleMcpMessage(message);
 
   if (response) {
@@ -456,6 +461,11 @@ async function handleMcpMessage(message) {
       }
     };
   }
+
+  // Log all tool calls
+  const callLog = { method: message.method, params: message.params };
+  recentWrites.unshift(callLog);
+  if (recentWrites.length > 50) recentWrites.pop();
 
   // Tool call
   if (message.method === 'tools/call') {
