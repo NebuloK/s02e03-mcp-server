@@ -19,10 +19,27 @@ const ASSEMBLYAI_KEY = process.env.ASSEMBLYAI_API_KEY;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
 // ── Storage ──────────────────────────────────────────────────────────────────
+const memosFile = path.join(process.cwd(), 'memos.json');
 const memos = new Map();
-const authCodes = new Map();      // code → { clientId, redirectUri, expiresAt }
-const accessTokens = new Map();   // token → { clientId, expiresAt }
-const sessions = new Map();       // sessionId → { res, messageQueue }
+
+// Load memos from disk (survives restarts)
+try {
+  const saved = JSON.parse(await readFile(memosFile, 'utf-8'));
+  if (Array.isArray(saved)) {
+    for (const n of saved) memos.set(n.id, n);
+  }
+  console.log(`Loaded ${memos.size} memos from disk`);
+} catch { /* no saved memos yet */ }
+
+function saveMemos() {
+  try {
+    writeFile(memosFile, JSON.stringify([...memos.values()]));
+  } catch { /* best effort */ }
+}
+
+const authCodes = new Map();
+const accessTokens = new Map();
+const sessions = new Map();
 
 const uploadsDir = path.join(process.cwd(), 'uploads');
 await mkdir(uploadsDir, { recursive: true });
@@ -476,6 +493,7 @@ function memoWrite(args) {
   const id = randomUUID();
   const note = { id, text: args.text, created_at: new Date().toISOString() };
   memos.set(id, note);
+  saveMemos();
   return { id };
 }
 
