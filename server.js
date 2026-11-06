@@ -58,10 +58,22 @@ function requireBearer(req, res, next) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  // Accept any reasonable Bearer token
-  // (The OAuth flow at /authorize + /token ensures only authorized clients
-  //  get tokens; we accept any non-trivial token so auth works across restarts.)
-  return next();
+  // Accept static AUTH_TOKEN for local testing / legacy clients
+  if (AUTH_TOKEN && token === AUTH_TOKEN) {
+    req.clientId = '_test';
+    req.authType = 'static';
+    return next();
+  }
+
+  // Validate OAuth tokens
+  const tokenData = accessTokens.get(token);
+  if (tokenData && tokenData.expiresAt > Date.now()) {
+    req.clientId = tokenData.clientId || '_unknown';
+    req.authType = 'oauth';
+    return next();
+  }
+
+  return res.status(401).json({ error: 'Invalid or expired token' });
 }
 
 // ── OAuth / Discovery endpoints ──────────────────────────────────────────────
@@ -162,7 +174,7 @@ app.post('/token', (req, res) => {
 });
 
 // ── Global auth: require token on ALL paths except public ones ───────────────
-const PUBLIC_PATHS = ['/.well-known/', '/docs', '/authorize', '/token', '/health', '/files/', '/debug', '/'];
+const PUBLIC_PATHS = ['/.well-known/', '/docs', '/authorize', '/token', '/health', '/files/'];
 
 app.use((req, res, next) => {
   const isPublic = PUBLIC_PATHS.find(p => req.path.startsWith(p)) !== undefined;
@@ -179,7 +191,7 @@ app.post('/', async (req, res) => {
   // Accept JSON-RPC messages directly at the root
   const message = req.body;
   if (message && typeof message === 'object' && message.method) {
-    const response = await handleMcpMessage(message);
+    const response = await handleMcpMessage(message, req.clientId || '_public');
     if (response) {
       res.json(response);
       return;
@@ -259,10 +271,10 @@ app.post('/messages', async (req, res) => {
   const message = req.body;
   // Log the call
   if (message && message.method) {
-    recentWrites.unshift({ from: '/messages', method: message.method, params: message.params });
+    recentWrites.unshift({ from: '/messages', method: message.method, params: message.params, clientId: req.clientId });
     if (recentWrites.length > 50) recentWrites.pop();
   }
-  const response = await handleMcpMessage(message);
+  const response = await handleMcpMessage(message, req.clientId);
 
   if (response) {
     if (session.res && !session.res.writableEnded) {
@@ -289,7 +301,7 @@ app.post('/mcp/messages', async (req, res) => {
   }
 
   const message = req.body;
-  const response = await handleMcpMessage(message);
+  const response = await handleMcpMessage(message, req.clientId);
 
   if (response) {
     if (session.res && !session.res.writableEnded) {
@@ -303,7 +315,7 @@ app.post('/mcp/messages', async (req, res) => {
 });
 
 // ── MCP message handler ──────────────────────────────────────────────────────
-async function handleMcpMessage(message) {
+async function handleMcpMessage(message, clientId) {
   if (!message || typeof message !== 'object') return null;
 
   // Server discover (current MCP method)
@@ -474,9 +486,9 @@ async function handleMcpMessage(message) {
     try {
       let result;
       switch (name) {
-        case 'memo_write': result = memoWrite(args); break;
-        case 'memo_search': result = memoSearch(args); break;
-        case 'memo_list': result = memoList(args); break;
+        case 'memo_write': result = memoWrite(args, clientId); break;
+        case 'memo_search': result = memoSearch(args, clientId); break;
+        case 'memo_list': result = memoList(clientId); break;
         case 'upload': result = await uploadFile(args); break;
         case 'transcribe': result = await transcribeAudio(args); break;
         default: throw new Error(`Unknown tool: ${name}`);
@@ -510,32 +522,32 @@ async function handleMcpMessage(message) {
 }
 
 // ── Tool implementations ─────────────────────────────────────────────────────
-function memoWrite(args) {
+function memoWrite(args, clientId) {
   if (!args) args = {};
   const id = randomUUID();
   const text = args.text || '';
-  const note = { id, text, created_at: new Date().toISOString() };
+  const note = { id, text, created_at: new Date().toISOString(), clientId: clientId || '_unknown' };
   memos.set(id, note);
   saveMemos();
-  recentWrites.unshift({ id, text: text.slice(0, 50), time: new Date().toISOString() });
+  recentWrites.unshift({ id, text: text.slice(0, 50), time: new Date().toISOString(), clientId: clientId || '_unknown' });
   if (recentWrites.length > 10) recentWrites.pop();
   return { id };
 }
 
-function memoSearch(args) {
+function memoSearch(args, clientId) {
   if (!args || !args.query) throw new Error('Missing required field: query');
   const query = String(args.query).toLowerCase();
   const notes = [];
   for (const note of memos.values()) {
-    if (note.text.toLowerCase().includes(query)) notes.push(note);
+    if (note.clientId === (clientId || '_unknown') && note.text.toLowerCase().includes(query)) notes.push(note);
   }
   return { notes };
 }
 
-function memoList() {
+function memoList(clientId) {
   const notes = [];
   for (const note of memos.values()) {
-    notes.push(note);
+    if (note.clientId === (clientId || '_unknown')) notes.push(note);
   }
   return { notes };
 }
@@ -657,8 +669,10 @@ app.get('/health', (req, res) => {
 
 const recentWrites = [];
 app.get('/debug', (req, res) => {
-  const notes = [...memos.values()];
-  res.json({ notes, recentWrites });
+  const clientId = req.clientId;
+  const notes = [...memos.values()].filter(n => n.clientId === clientId);
+  const writes = recentWrites.filter(r => r.clientId === clientId);
+  res.json({ notes, recentWrites: writes });
 });
 
 // ── HTML escape helper ──────────────────────────────────────────────────────
