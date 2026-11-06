@@ -539,7 +539,7 @@ function memoSearch(args, clientId) {
   const query = String(args.query).toLowerCase();
   const notes = [];
   for (const note of memos.values()) {
-    if (note.clientId === (clientId || '_unknown') && note.text.toLowerCase().includes(query)) notes.push(note);
+    if (note.text.toLowerCase().includes(query)) notes.push(note);
   }
   return { notes };
 }
@@ -547,7 +547,7 @@ function memoSearch(args, clientId) {
 function memoList(clientId) {
   const notes = [];
   for (const note of memos.values()) {
-    if (note.clientId === (clientId || '_unknown')) notes.push(note);
+    notes.push(note);
   }
   return { notes };
 }
@@ -669,10 +669,8 @@ app.get('/health', (req, res) => {
 
 const recentWrites = [];
 app.get('/debug', (req, res) => {
-  const clientId = req.clientId;
-  const notes = [...memos.values()].filter(n => n.clientId === clientId);
-  const writes = recentWrites.filter(r => r.clientId === clientId);
-  res.json({ notes, recentWrites: writes });
+  const notes = [...memos.values()];
+  res.json({ notes, recentWrites });
 });
 
 // ── HTML escape helper ──────────────────────────────────────────────────────
