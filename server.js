@@ -444,7 +444,7 @@ async function handleMcpMessage(message, clientId) {
       jsonrpc: '2.0',
       id: message.id,
       result: {
-        supportedVersions: ['2024-11-05', '2025-03-26', '2025-06-18', '2025-09-22', '2025-12-22', '2026-03-22', '2026-07-28'],'2024-11-05', '2025-03-26', '2025-06-18', '2025-09-22', '2025-12-22', '2026-03-22'],
+        supportedVersions: ['2024-11-05', '2025-03-26', '2025-06-18', '2025-09-22', '2025-12-22', '2026-03-22', '2026-07-28'],
         capabilities: { tools: {} },
         instructions: 'MCP server with memo_write, memo_search, upload, and transcribe tools.'
       }
