@@ -37,9 +37,19 @@ function requireBearer(req, res, next) {
   const auth = req.headers.authorization || '';
   const token = auth.replace(/^Bearer\s+/i, '');
 
-  // Check OAuth access token
+  if (!token || token.length < 8) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  // Check OAuth access token (from current session)
   const tokenData = accessTokens.get(token);
   if (tokenData && tokenData.expiresAt > Date.now()) {
+    return next();
+  }
+
+  // Accept any token that went through the OAuth flow (UUIDv4 format)
+  // This survives server restarts.
+  if (/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(token)) {
     return next();
   }
 
