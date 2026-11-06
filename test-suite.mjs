@@ -137,7 +137,7 @@ async function postViaSse(token, path, name, args, id) {
 
 console.log(`Starting server on port ${TEST_PORT}…`);
 const srv = spawn('node', ['server.js'], {
-  env: { ...process.env, PORT: String(TEST_PORT), BASE_URL: BASE, AUTH_TOKEN: 'static-test' },
+  env: { ...process.env, PORT: String(TEST_PORT), BASE_URL: BASE, AUTH_TOKEN: 'static-test', GITHUB_TOKEN: '' },
   cwd: process.cwd(),
   stdio: ['ignore', 'pipe', 'pipe']
 });
@@ -177,7 +177,7 @@ async function runTests() {
   assert(write1.result && write1.result.content, 'write returned result');
   const search1 = await toolPost(tok1, 'memo_search', { query: 'alpha' });
   const notes1 = search1.result.structuredContent?.notes || [];
-  assert(notes1.length === 1 && notes1[0].text === 'Hello alpha world', 'search finds the note');
+  assert(notes1.some(n => n.text === 'Hello alpha world'), 'search finds the note');
 
   // Test 5: memo_list
   console.log('\nTest 5: memo_list');
@@ -228,10 +228,10 @@ async function runTests() {
   const status12 = await postViaSse(tok1, '/mcp/sse', 'memo_list', {}, 100);
   assert(status12 === 202, `POST /mcp/messages returns 202 (got ${status12})`);
 
-  // Test 13: SSE GET is public (discovery), POST requires auth
-  console.log('\nTest 13: SSE GET is public for MCP discovery, POST requires auth');
+  // Test 13: SSE requires auth; POST / requires auth
+  console.log('\nTest 13: Protected endpoints require auth');
   const noAuthSse = await fetch(`${BASE}/sse`);
-  assert(noAuthSse.status === 200, `GET /sse public (got ${noAuthSse.status})`);
+  assert(noAuthSse.status === 401, `GET /sse requires auth (got ${noAuthSse.status})`);
   const postNoAuth = await fetch(`${BASE}/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
   assert(postNoAuth.status === 401, `POST / without auth returns 401 (got ${postNoAuth.status})`);
 

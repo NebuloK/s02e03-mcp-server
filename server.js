@@ -285,10 +285,7 @@ app.use((req, res, next) => {
 app.use((req, res, next) => {
   const isPublic = PUBLIC_PATHS.find(p => req.path.startsWith(p)) !== undefined;
   if (isPublic) return next();
-  // Allow MCP endpoints for discovery and direct JSON-RPC calls
-  const mcpPaths = ['/mcp', '/sse', '/mcp/sse', '/messages', '/mcp/messages'];
-  if (mcpPaths.includes(req.path)) return next();
-  if (req.path === '/' && req.method === 'GET') return next();
+  // Everything else requires auth
   return requireBearer(req, res, next);
 });
 
