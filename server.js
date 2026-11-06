@@ -17,7 +17,16 @@ const PORT = process.env.PORT || 3000;
 const AUTH_TOKEN = process.env.AUTH_TOKEN;
 const ASSEMBLYAI_KEY = process.env.ASSEMBLYAI_API_KEY;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+// GitHub token fallback: try env var first, then .env file, then empty
+let _githubToken = process.env.GITHUB_TOKEN;
+if (!_githubToken) {
+  try {
+    const envFile = await readFile(path.join(process.cwd(), '.env'), 'utf-8');
+    const match = envFile.match(/^GITHUB_TOKEN=(.+)$/m);
+    if (match) _githubToken = match[1].trim();
+  } catch { /* no .env */ }
+}
+const GITHUB_TOKEN = _githubToken;
 const GITHUB_OWNER = 'NebuloK';
 const GITHUB_REPO = 's02e03-mcp-server';
 const GITHUB_MEMO_PATH = 'memos.json';
