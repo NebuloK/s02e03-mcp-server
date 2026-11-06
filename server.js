@@ -49,6 +49,21 @@ const app = express();
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// ── Request logger ─────────────────────────────────────────────────────────
+const requestLog = [];
+function logRequest(req) {
+  const entry = {
+    time: new Date().toISOString(),
+    method: req.method,
+    path: req.path,
+    query: req.query,
+    clientId: req.clientId,
+    body: req.body ? JSON.stringify(req.body).slice(0, 500) : null
+  };
+  requestLog.unshift(entry);
+  if (requestLog.length > 30) requestLog.pop();
+}
+
 // ── Auth helpers ─────────────────────────────────────────────────────────────
 function requireBearer(req, res, next) {
   const auth = req.headers.authorization || '';
@@ -183,6 +198,14 @@ app.use((req, res, next) => {
   const isPublic = PUBLIC_PATHS.find(p => req.path.startsWith(p)) !== undefined;
   if (isPublic) return next();
   return requireBearer(req, res, next);
+});
+
+// Log after auth so clientId is available
+app.use((req, res, next) => {
+  if (!PUBLIC_PATHS.find(p => req.path.startsWith(p))) {
+    logRequest(req);
+  }
+  next();
 });
 
 // ── Root handlers (after auth check) ─────────────────────────────────────────
@@ -488,7 +511,9 @@ async function handleMcpMessage(message, clientId) {
 
   // Tool call
   if (message.method === 'tools/call') {
-    const { name, arguments: args } = message.params || {};
+    const params = message.params || {};
+    const name = params.name;
+    const args = params.arguments || params.args || {};
 
     try {
       let result;
@@ -677,7 +702,7 @@ app.get('/health', (req, res) => {
 const recentWrites = [];
 app.get('/debug', (req, res) => {
   const notes = [...memos.values()];
-  res.json({ notes, recentWrites });
+  res.json({ notes, recentWrites, requestLog });
 });
 
 // ── HTML escape helper ──────────────────────────────────────────────────────
