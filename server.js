@@ -181,7 +181,7 @@ function requireBearer(req, res, next) {
 // OAuth Protected Resource Metadata (RFC 9728)
 app.get('/.well-known/oauth-protected-resource', (req, res) => {
   res.json({
-    resource: BASE_URL,
+    resource: `${BASE_URL}/mcp`,
     authorization_servers: [`${BASE_URL}`],
     resource_documentation: `${BASE_URL}/docs`,
     scopes_supported: ['mcp']

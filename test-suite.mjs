@@ -248,7 +248,7 @@ async function runTests() {
   // Test 15: Discovery endpoints
   console.log('\nTest 15: OAuth discovery endpoints public and correct');
   const resMeta = await (await fetch(`${BASE}/.well-known/oauth-protected-resource`)).json();
-  assert(resMeta.resource === BASE, `resource is ${BASE}`);
+  assert(resMeta.resource === `${BASE}/mcp`, `resource is ${BASE}/mcp (got ${resMeta.resource})`);
   assert(resMeta.authorization_servers[0] === BASE, `authorization_servers[0] is ${BASE}`);
   assert(resMeta.resource_documentation === `${BASE}/docs`, `resource_documentation is ${BASE}/docs`);
   const authMeta = await (await fetch(`${BASE}/.well-known/oauth-authorization-server`)).json();
