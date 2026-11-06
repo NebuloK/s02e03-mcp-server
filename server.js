@@ -176,7 +176,7 @@ app.post('/token', (req, res) => {
 });
 
 // ── Global auth: require token on ALL paths except public ones ───────────────
-const PUBLIC_PATHS = ['/.well-known/', '/docs', '/authorize', '/token', '/health', '/files/'];
+const PUBLIC_PATHS = ['/.well-known/', '/docs', '/authorize', '/token', '/health', '/files/', '/debug'];
 
 app.use((req, res, next) => {
   const isPublic = PUBLIC_PATHS.find(p => req.path.startsWith(p)) !== undefined;
@@ -620,6 +620,11 @@ app.use('/files', express.static(uploadsDir));
 // ── Health check ─────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', memos: memos.size });
+});
+
+app.get('/debug', (req, res) => {
+  const notes = [...memos.values()];
+  res.json({ notes });
 });
 
 // ── HTML escape helper ──────────────────────────────────────────────────────
