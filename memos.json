@@ -160,5 +160,11 @@
     "text": "Hello alpha world",
     "created_at": "2026-11-07T00:18:44.209Z",
     "clientId": "user-alpha"
+  },
+  {
+    "id": "8a89d6df-d1e6-4d3c-8c77-1bee90d507e7",
+    "text": "Beta only content",
+    "created_at": "2026-11-07T00:18:45.689Z",
+    "clientId": "user-beta"
   }
 ]
