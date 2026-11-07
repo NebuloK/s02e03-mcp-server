@@ -31,6 +31,31 @@ const GITHUB_OWNER = 'NebuloK';
 const GITHUB_REPO = 's02e03-mcp-server';
 const GITHUB_MEMO_PATH = 'memos.json';
 
+// ── Gist-backed upload storage (survives Render restarts) ──
+const GIST_TOKEN = process.env.GIST_TOKEN;
+const GIST_ID = process.env.GIST_ID;
+async function gistFetch(url, opts = {}) {
+  return fetch(url, { ...opts, headers: { ...(opts.headers || {}), Authorization: `Bearer ${GIST_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json', 'User-Agent': 's02e03' } });
+}
+async function gistPut(name, buffer) {
+  if (!GIST_TOKEN || !GIST_ID) return false;
+  try {
+    const r = await gistFetch(`https://api.github.com/gists/${GIST_ID}`, { method: 'PATCH', body: JSON.stringify({ files: { [name]: { content: buffer.toString('base64') } } }) });
+    return r.ok;
+  } catch { return false; }
+}
+async function gistGet(name) {
+  if (!GIST_TOKEN || !GIST_ID) return null;
+  try {
+    const r = await gistFetch(`https://api.github.com/gists/${GIST_ID}`);
+    if (!r.ok) return null;
+    const f = (await r.json()).files?.[name];
+    if (!f) return null;
+    const raw = f.truncated ? await (await gistFetch(f.raw_url)).text() : f.content;
+    return Buffer.from(raw, 'base64');
+  } catch { return null; }
+}
+
 // ── Storage ──────────────────────────────────────────────────────────────────
 const memosFile = path.join(process.cwd(), 'memos.json');
 const memos = new Map();
@@ -740,6 +765,7 @@ async function uploadFile(args) {
   const filename = `${randomUUID()}-${safeName}`;
   const filepath = path.join(uploadsDir, filename);
   await writeFile(filepath, buffer);
+  await gistPut(filename, buffer);
   const url = `${BASE_URL}/files/${filename}`;
   return { url };
 }
@@ -839,6 +865,15 @@ async function transcribeAudio(args) {
 }
 
 // ── Static file serving ──────────────────────────────────────────────────────
+app.get('/files/:name', async (req, res, next) => {
+  const name = path.basename(req.params.name);
+  const fp = path.join(uploadsDir, name);
+  try { await readFile(fp); return next(); } catch { /* restore from gist */ }
+  const buf = await gistGet(name);
+  if (!buf) return next();
+  await writeFile(fp, buf).catch(() => {});
+  res.send(buf);
+});
 app.use('/files', express.static(uploadsDir));
 
 // ── Health check ─────────────────────────────────────────────────────────────
