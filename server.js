@@ -299,6 +299,7 @@ app.post('/', async (req, res) => {
   if (message && typeof message === 'object' && message.method) {
     const response = await handleMcpMessage(message, req.clientId || '_public');
     if (response) {
+      if (response.error && [-32602, -32022, -32021].includes(response.error.code)) res.status(400);
       res.json(response);
       return;
     }
@@ -340,6 +341,7 @@ app.post('/mcp', async (req, res) => {
   if (message && typeof message === 'object' && message.method) {
     const response = await handleMcpMessage(message, req.clientId || '_public');
     if (response) {
+      if (response.error && [-32602, -32022, -32021].includes(response.error.code)) res.status(400);
       res.json(response);
       return;
     }
@@ -433,8 +435,59 @@ app.post('/mcp/messages', async (req, res) => {
   res.status(202).send();
 });
 
-// ── MCP message handler ──────────────────────────────────────────────────────
+// ── Protocol eras: modern (2026-07-28, stateless per-request _meta) + legacy ──
+const MODERN_VERSION = '2026-07-28';
+const LEGACY_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
+const ALL_VERSIONS = [MODERN_VERSION, ...LEGACY_VERSIONS];
+const SERVER_INFO = { name: 's02e03-mcp-server', version: '1.0.0' };
+const PV_KEY = 'io.modelcontextprotocol/protocolVersion';
+const CAP_KEY = 'io.modelcontextprotocol/clientCapabilities';
+const SI_KEY = 'io.modelcontextprotocol/serverInfo';
+
+function rpcError(id, code, message, data) {
+  return { jsonrpc: '2.0', id: id ?? null, error: { code, message, ...(data ? { data } : {}) } };
+}
+
 async function handleMcpMessage(message, clientId) {
+  if (!message || typeof message !== 'object') return null;
+  const meta = message.params && message.params._meta;
+  const isModern = meta && typeof meta === 'object' && PV_KEY in meta;
+
+  if (message.method === 'server/discover') {
+    return {
+      jsonrpc: '2.0', id: message.id,
+      result: {
+        resultType: 'complete',
+        supportedVersions: ALL_VERSIONS,
+        capabilities: { tools: {} },
+        _meta: { [SI_KEY]: SERVER_INFO },
+        instructions: 'MCP server with memo_write, memo_search, upload, and transcribe tools.',
+        ttlMs: 60000,
+        cacheScope: 'public'
+      }
+    };
+  }
+  if (!isModern) return handleLegacyMessage(message, clientId);
+
+  // Modern request
+  if (!ALL_VERSIONS.includes(meta[PV_KEY]) || !message.method) {
+    return rpcError(message.id, -32022, 'Unsupported protocol version', { supported: ALL_VERSIONS, requested: meta[PV_KEY] });
+  }
+  if (LEGACY_VERSIONS.includes(meta[PV_KEY])) return handleLegacyMessage(message, clientId);
+  if (!meta[CAP_KEY] || typeof meta[CAP_KEY] !== 'object') {
+    return rpcError(message.id, -32602, 'Invalid params: missing ' + CAP_KEY);
+  }
+  const resp = await handleLegacyMessage(message, clientId);
+  if (resp && resp.result) {
+    resp.result.resultType = 'complete';
+    resp.result._meta = { ...(resp.result._meta || {}), [SI_KEY]: SERVER_INFO };
+  }
+  if (!resp && message.id !== undefined) return rpcError(message.id, -32601, 'Method not found');
+  return resp;
+}
+
+// ── MCP message handler (legacy semantics) ──────────────────────────────────────────────────────
+async function handleLegacyMessage(message, clientId) {
   if (!message || typeof message !== 'object') return null;
 
   // Server discover (current MCP method)
@@ -443,7 +496,7 @@ async function handleMcpMessage(message, clientId) {
       jsonrpc: '2.0',
       id: message.id,
       result: {
-        supportedVersions: ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'],
+        supportedVersions: ALL_VERSIONS,
         capabilities: { tools: {} },
         instructions: 'MCP server with memo_write, memo_search, upload, and transcribe tools.'
       }
@@ -454,7 +507,7 @@ async function handleMcpMessage(message, clientId) {
   if (message.method === 'initialize') {
     const params = message.params || {};
     const clientVersion = params.protocolVersion || '2024-11-05';
-    const supportedVersions = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
+    const supportedVersions = LEGACY_VERSIONS;
     // Official SDK behavior: if requested is supported, use it; else use latest
     const serverVersion = supportedVersions.includes(clientVersion) ? clientVersion : supportedVersions[0];
     return {
