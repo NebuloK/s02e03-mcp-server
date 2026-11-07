@@ -170,10 +170,9 @@ function requireBearer(req, res, next) {
     return next();
   }
 
-  // Accept any other reasonable token (the course may send its own)
-  req.clientId = '_anonymous';
-  req.authType = 'bearer';
-  return next();
+  return res.status(401)
+    .set('WWW-Authenticate', `Bearer resource_metadata="${BASE_URL}/.well-known/oauth-protected-resource"`)
+    .json({ error: 'Unauthorized' });
 }
 
 // ── OAuth / Discovery endpoints ──────────────────────────────────────────────

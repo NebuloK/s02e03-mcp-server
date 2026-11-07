@@ -267,10 +267,10 @@ async function runTests() {
   assert(staticRes.status === 200, `Static token returns 200 (got ${staticRes.status})`);
 
   // Test 18: Any reasonable-length token accepted (course compatibility)
-  console.log('\nTest 18: Any reasonable-length token accepted');
+  console.log('\nTest 18: Unknown token rejected');
   const fakeToken = '00000000-0000-0000-0000-000000000000';
   const fakeRes = await fetch(`${BASE}/sse`, { headers: { Authorization: `Bearer ${fakeToken}` } });
-  assert(fakeRes.status === 200, `Arbitrary token accepted (got ${fakeRes.status})`);
+  assert(fakeRes.status === 401, `Unknown token rejected (got ${fakeRes.status})`);
 
   // Test 19: POST /mcp handles JSON-RPC directly
   console.log('\nTest 19: POST /mcp handles JSON-RPC');
